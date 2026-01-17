@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Professional Photo Report Builder</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; padding: 20px; color: #333; }
+        .controls { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 850px; margin: 0 auto 30px; }
+        
+        /* The Main Report Border */
+        .report-preview { 
+            background: white; 
+            padding: 40px; 
+            min-height: 1056px; /* Standard A4 ratio height */
+            max-width: 800px; 
+            margin: 0 auto; 
+            border: 2px solid #333; /* Heavy Outer Border */
+            outline: 10px solid white; /* Spacing */
+            box-shadow: 0 0 0 1px #333; /* Inner thin line */
+            display: flex; 
+            flex-direction: column;
+            position: relative;
+        }
+        
+        /* Editable areas hover effect */
+        [contenteditable="true"]:hover {
+            background-color: #fffdf0;
+            outline: 1px dashed #007bff;
+            cursor: text;
+        }
+
+        /* Report Header Styling */
+        .report-header { 
+            border-bottom: 4px double #333; 
+            margin-bottom: 30px; 
+            padding-bottom: 15px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+        }
+
+        #entriesContainer { flex-grow: 1; }
+        
+        /* Photo Entry Styling */
+        .entry { 
+            display: flex; 
+            margin-bottom: 30px; 
+            gap: 20px; 
+            page-break-inside: avoid; 
+            border-bottom: 1px solid #ccc; 
+            padding-bottom: 20px; 
+            position: relative; 
+        }
+        .entry img { width: 380px; height: auto; border: 1px solid #000; object-fit: cover; }
+        .entry-details { flex: 1; font-size: 1em; line-height: 1.5; padding: 5px; }
+        
+        /* Action Buttons for items */
+        .remove-btn {
+            position: absolute;
+            right: -60px;
+            top: 0;
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        /* Logo Footer */
+        .report-footer { 
+            margin-top: 30px; 
+            border-top: 2px solid #333; 
+            padding-top: 20px; 
+            text-align: center; 
+            position: relative;
+        }
+        #previewLogo { max-height: 70px; max-width: 180px; display: none; margin: 0 auto; }
+        
+        /* UI Elements */
+        label { font-weight: bold; display: block; margin-top: 15px; font-size: 0.9em; }
+        input, textarea { width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        .btn-group { margin-top: 20px; display: flex; gap: 10px; }
+        button { flex: 1; padding: 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .add-btn { background: #007bff; color: white; }
+        .print-btn { background: #28a745; color: white; }
+        button:hover { filter: brightness(90%); }
+
+        @media print {
+            .controls, .remove-btn { display: none !important; }
+            body { background: white; padding: 0; }
+            .report-preview { 
+                margin: 0; 
+                border: 2px solid #333; 
+                box-shadow: none; 
+                outline: none;
+                width: 100%;
+                max-width: 100%;
+            }
+            [contenteditable="true"]:hover { outline: none; background: none; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="controls">
+        <h2 style="margin-top: 0; border-bottom: 2px solid #eee; padding-bottom: 10px;">Report Configuration</h2>
+        
+        <div style="display: flex; gap: 20px;">
+            <div style="flex: 1;">
+                <label>1. Date of Inspection</label>
+                <input type="date" id="reportDate" onchange="updateDate()">
+            </div>
+            <div style="flex: 1;">
+                <label>2. Company Logo</label>
+                <input type="file" id="logoInput" accept="image/*" onchange="updateLogo(this)">
+            </div>
+        </div>
+        
+        <label>3. Add Attachment</label>
+        <input type="file" id="imageInput" accept="image/*">
+        
+        <label>4. Notes / Description</label>
+        <textarea id="detailsInput" rows="3" placeholder="Enter findings or observations..."></textarea>
+        
+        <div class="btn-group">
+            <button class="add-btn" onclick="addEntry()">+ Insert Photo & Text</button>
+            <button class="print-btn" onclick="window.print()">Generate PDF</button>
+        </div>
+    </div>
+
+    <div class="report-preview" id="reportArea">
+        <div class="report-header">
+            <div>
+                <h1 style="margin:0; text-transform: uppercase; letter-spacing: 1px;" contenteditable="true">Site Inspection Report</h1>
+                <p style="margin: 5px 0 0 0; color: #666; font-style: italic;" contenteditable="true">Sub-heading or Location details...</p>
+            </div>
+            <div style="text-align: right;">
+                <span id="displayDate" contenteditable="true" style="font-weight: bold; font-size: 1.1em;">Date: [Not Set]</span>
+            </div>
+        </div>
+
+        <div id="entriesContainer">
+            </div>
+
+        <div class="report-footer" id="reportFooter">
+            <img id="previewLogo" src="" alt="Logo">
+        </div>
+    </div>
+
+    <script>
+        function updateDate() {
+            const dateVal = document.getElementById('reportDate').value;
+            // Format date to be more professional (e.g., YYYY-MM-DD)
+            document.getElementById('displayDate').innerText = "Date: " + dateVal;
+        }
+
+        function updateLogo(input) {
+            const logoImg = document.getElementById('previewLogo');
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    logoImg.src = e.target.result;
+                    logoImg.style.display = 'block';
+                };
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        function addEntry() {
+            const fileInput = document.getElementById('imageInput');
+            const detailsText = document.getElementById('detailsInput').value;
+            const container = document.getElementById('entriesContainer');
+
+            if (fileInput.files && fileInput.files[0]) {
+                const imageUrl = URL.createObjectURL(fileInput.files[0]);
+                
+                const entryDiv = document.createElement('div');
+                entryDiv.className = 'entry';
+                
+                entryDiv.innerHTML = `
+                    <button class="remove-btn" onclick="this.parentElement.remove()">Delete</button>
+                    <img src="${imageUrl}" onload="window.URL.revokeObjectURL(this.src)">
+                    <div class="entry-details">
+                        <p contenteditable="true" style="margin-top:0;">${detailsText.replace(/\n/g, '<br>') || 'Click to edit description...'}</p>
+                    </div>
+                `;
+                
+                container.appendChild(entryDiv);
+
+                // Reset inputs
+                fileInput.value = "";
+                document.getElementById('detailsInput').value = "";
+            } else {
+                alert("Please select a photo to add.");
+            }
+        }
+    </script>
+
+</body>
+</html>
